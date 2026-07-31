@@ -5,9 +5,9 @@ configMapGenerator:
 - name: buildbarn-config
   namespace: buildbarn
   files:
-    - browser.jsonnet
     - common.libsonnet
     - frontend.jsonnet
+    - portal.jsonnet
     - runner-ubuntu22-04.jsonnet
     - scheduler.jsonnet
     - storage.jsonnet

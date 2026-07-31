@@ -75,7 +75,7 @@ wait "$buildbarn_pid" || true
 # On Windows, wait doesn't wait for the bare.exe process to exit.
 # The batch wrapper terminates directly. Give bb-storage some time to write down the persistent state.
 # TODO: 2026-06-22 Make sure wait works and remove the sleep.
-sleep 2
+sleep 5
 $script_exec 2>"${bare_output}" &
 buildbarn_pid=$!
 sleep 5

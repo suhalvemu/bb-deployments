@@ -20,6 +20,20 @@ spec:
         runAsNonRoot: {{ .Values.portal.securityContext.runAsNonRoot }}
         runAsUser: {{ .Values.portal.securityContext.runAsUser }}
         runAsGroup: {{ .Values.portal.securityContext.runAsGroup }}
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.31.1-uclibc
+        # bb-portal crashes fatally (not just retries) if postgres isn't
+        # reachable the moment it starts its DB schema migration, and
+        # Kubernetes gives no ordering guarantee across separate
+        # workloads -- confirmed via a from-scratch install where portal
+        # crash-looped 3-4 times before postgres won the race. Gate on
+        # postgres actually being reachable instead of relying on
+        # restarts to eventually catch up.
+        command:
+        - sh
+        - -c
+        - until nc -z postgres.{{ include "buildbarn.namespace" . }} 5432; do echo "waiting for postgres..."; sleep 2; done
       containers:
       - name: portal
         image: "{{ .Values.portal.image.repository }}:{{ .Values.portal.image.tag }}"

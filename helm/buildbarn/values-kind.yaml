@@ -1,0 +1,24 @@
+# Overrides for local `kind` testing -- NOT for production use.
+#
+# values.yaml's defaults are sized for a real cluster and add up to ~7.6
+# CPU in requests alone (worker's default 8 replicas dominates that).
+# A single-node kind cluster typically has 4 allocatable CPUs, some of
+# which kube-system pods (CoreDNS, etc.) already claim. Reducing just one
+# component (e.g. only `worker.replicas`) isn't enough for a real
+# from-scratch `helm install` -- confirmed by testing: even with worker
+# scaled down, storage's second replica still failed to schedule because
+# every component starts requesting resources simultaneously on a fresh
+# install (unlike incrementally `helm upgrade`-ing one component at a
+# time, where already-scheduled pods aren't preempted to make room for
+# later ones).
+#
+# Usage: helm install buildbarn . -f values-kind.yaml --kube-context kind-...
+
+frontend:
+  replicas: 1
+
+worker:
+  replicas: 2
+
+portal:
+  replicas: 1

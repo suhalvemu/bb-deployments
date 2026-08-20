@@ -63,3 +63,37 @@ storage:
     port: 8981
     initialDelaySeconds: 5
     periodSeconds: 10
+
+frontend:
+  # Stateless — runs the same bb-storage image, just pointed at
+  # frontend.jsonnet instead of storage.jsonnet, so it uses the top-level
+  # `image` block above rather than its own.
+  replicas: 3
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+
+  probes:
+    enabled: true
+    port: 8980
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  service:
+    # LoadBalancer matches upstream's raw manifest (external entrypoint for
+    # Bazel clients). On kind this stays Pending forever with no cloud
+    # LB controller — fine for verifying the Deployment itself; switch to
+    # NodePort or port-forward to actually reach it locally.
+    type: LoadBalancer

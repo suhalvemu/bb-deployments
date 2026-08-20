@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "frontend") | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "frontend") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.frontend.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.frontend.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.frontend.securityContext.runAsGroup }}
+      containers:
+      - name: frontend
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - /config/frontend.jsonnet
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.frontend.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.frontend.securityContext.readOnlyRootFilesystem }}
+        ports:
+        - containerPort: 8980
+          protocol: TCP
+          name: grpc
+        resources:
+          {{- toYaml .Values.frontend.resources | nindent 10 }}
+        {{- if .Values.frontend.probes.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.frontend.probes.port }}
+          initialDelaySeconds: {{ .Values.frontend.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.frontend.probes.periodSeconds }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.frontend.probes.port }}
+          initialDelaySeconds: {{ .Values.frontend.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.frontend.probes.periodSeconds }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+      volumes:
+      - name: configs
+        configMap:
+          name: buildbarn-config
+          items:
+          - key: common.libsonnet
+            path: common.libsonnet
+          - key: frontend.jsonnet
+            path: frontend.jsonnet

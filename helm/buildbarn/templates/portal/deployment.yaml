@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "portal") | nindent 4 }}
+spec:
+  replicas: {{ .Values.portal.replicas }}
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "portal") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "portal") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.portal.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.portal.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.portal.securityContext.runAsGroup }}
+      containers:
+      - name: portal
+        image: "{{ .Values.portal.image.repository }}:{{ .Values.portal.image.tag }}"
+        imagePullPolicy: {{ .Values.portal.image.pullPolicy }}
+        args:
+        - /config/portal.jsonnet
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.portal.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.portal.securityContext.readOnlyRootFilesystem }}
+        ports:
+        - containerPort: 8081
+          protocol: TCP
+          name: http
+        - containerPort: 8082
+          protocol: TCP
+          name: bes-grpc
+        - containerPort: 9980
+          protocol: TCP
+          name: diagnostics
+        resources:
+          {{- toYaml .Values.portal.resources | nindent 10 }}
+        {{- if .Values.portal.probes.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.portal.probes.port }}
+          initialDelaySeconds: {{ .Values.portal.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.portal.probes.periodSeconds }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.portal.probes.port }}
+          initialDelaySeconds: {{ .Values.portal.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.portal.probes.periodSeconds }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+      volumes:
+      - name: configs
+        configMap:
+          name: buildbarn-config
+          items:
+          - key: common.libsonnet
+            path: common.libsonnet
+          - key: portal.jsonnet
+            path: portal.jsonnet

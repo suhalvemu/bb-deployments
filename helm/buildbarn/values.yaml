@@ -197,3 +197,50 @@ worker:
   cache:
     maximumFileCount: 10000
     maximumSizeBytes: 1073741824 # 1 GiB
+
+postgres:
+  # Upstream's raw manifest runs this as a bare Deployment with no volume
+  # at all -- data is lost on every pod restart. This chart makes it a
+  # StatefulSet with a real PVC instead, matching bb-storage's pattern.
+  image:
+    repository: docker.io/postgres
+    tag: "18-alpine"
+    pullPolicy: IfNotPresent
+
+  database: app
+  user: app
+  # Read into a Secret rather than left as a bare env var (upstream's raw
+  # manifest sets POSTGRES_PASSWORD directly in the Deployment spec, which
+  # ends up in plaintext in `kubectl get deploy -o yaml`). This default is
+  # only safe for local kind testing -- override via
+  # `--set postgres.password=...` or a values file for anything real.
+  # Set existingSecret instead to point at a pre-created Secret (key:
+  # "password") and skip having this chart manage the secret at all.
+  password: "password"
+  existingSecret: ""
+
+  storageClassName: ""
+  pvcSizeGi: 5
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999 # matches the postgres:18-alpine image's own "postgres" uid
+    runAsGroup: 999
+    fsGroup: 999
+    allowPrivilegeEscalation: false
+
+  # pg_isready is bundled in the postgres image -- a real readiness check,
+  # not just "is the TCP port open" (which postgres accepts before it's
+  # actually ready to serve).
+  probes:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10

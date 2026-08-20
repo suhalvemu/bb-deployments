@@ -35,7 +35,7 @@ build:remote-ubuntu-22-04 --config=remote-exec
 build:remote-ubuntu-22-04 --extra_execution_platforms=//tools/platforms:ubuntu-act-22-04-platform
 
 # Workaround https://github.com/bazelbuild/bazel/issues/19733
-common:remote-exec-windows --features=-parse_showincludes --host_features=-parse_showincludes --copt=-Wno-nonportable-include-path
+common:remote-exec-windows --features=-parse_showincludes --host_features=-parse_showincludes --copt=-Wno-nonportable-include-path --remote_print_execution_messages=all
 
 # When running bare executors on your own host machine.
 build:remote-local --config=remote-exec --extra_execution_platforms=//tools/platforms:remote-local

@@ -97,3 +97,47 @@ frontend:
     # LB controller — fine for verifying the Deployment itself; switch to
     # NodePort or port-forward to actually reach it locally.
     type: LoadBalancer
+
+scheduler:
+  # Its own image — bb-scheduler is a separate binary from bb-storage,
+  # unlike frontend which just reuses the storage image with a different
+  # config.
+  image:
+    repository: ghcr.io/buildbarn/bb-scheduler
+    tag: "20260527T162223Z-c48dcda"
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+
+  # The scheduler exposes readiness via its admin HTTP port rather than
+  # the gRPC ports — a plain TCP check against 7982 is enough to confirm
+  # the process is up and serving.
+  probes:
+    enabled: true
+    port: 7982
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  ingress:
+    # Off by default — upstream's raw manifest hardcodes
+    # bb-scheduler.example.com, which isn't meaningful outside their own
+    # docs setup. Set enabled=true and pick a real host + ingressClassName
+    # for an actual cluster.
+    enabled: false
+    host: bb-scheduler.example.com
+    ingressClassName: ""

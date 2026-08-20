@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "postgres") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "postgres") | nindent 6 }}
+  serviceName: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "postgres") | nindent 8 }}
+        prometheus-scraping: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.postgres.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.postgres.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.postgres.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.postgres.securityContext.fsGroup }}
+      containers:
+      - name: postgres
+        image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+        imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.postgres.securityContext.allowPrivilegeEscalation }}
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.postgres.database | quote }}
+        - name: POSTGRES_USER
+          value: {{ .Values.postgres.user | quote }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "buildbarn.postgresSecretName" . }}
+              key: password
+        # Avoids postgres refusing to start on some CSI storage classes
+        # that leave a lost+found directory at the PVC mount root.
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          {{- toYaml .Values.postgres.resources | nindent 10 }}
+        {{- if .Values.postgres.probes.enabled }}
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+          initialDelaySeconds: {{ .Values.postgres.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.probes.periodSeconds }}
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+          initialDelaySeconds: {{ .Values.postgres.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.probes.periodSeconds }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.postgres.storageClassName }}
+      storageClassName: {{ .Values.postgres.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.postgres.pvcSizeGi }}Gi

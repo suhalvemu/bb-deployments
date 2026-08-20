@@ -48,3 +48,15 @@ Call as: {{ include "buildbarn.storageShards" $ }}
 {{- end }}
 }
 {{- end -}}
+
+{{/*
+Name of the Secret holding the postgres password -- either the
+user-supplied existingSecret, or the one this chart creates itself.
+*/}}
+{{- define "buildbarn.postgresSecretName" -}}
+{{- if .Values.postgres.existingSecret -}}
+{{- .Values.postgres.existingSecret -}}
+{{- else -}}
+postgres-credentials
+{{- end -}}
+{{- end -}}

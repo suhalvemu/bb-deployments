@@ -244,3 +244,50 @@ postgres:
     enabled: true
     initialDelaySeconds: 10
     periodSeconds: 10
+
+portal:
+  image:
+    repository: ghcr.io/buildbarn/bb-portal
+    tag: "20260630T071618Z-dd0997c"
+    pullPolicy: IfNotPresent
+
+  replicas: 3
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+
+  probes:
+    enabled: true
+    port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  # The web UI's displayed name -- upstream's raw manifest hardcodes
+  # "Example Co".
+  companyName: "Example Co"
+
+  service:
+    # portal-bes is the build-event-service gRPC endpoint Bazel clients
+    # point --bes_backend at. LoadBalancer matches upstream (external
+    # entrypoint); Pending forever on kind with no cloud LB controller,
+    # same caveat as frontend's service.
+    besType: LoadBalancer
+
+  ingress:
+    # Off by default, same reasoning as scheduler's -- upstream hardcodes
+    # bb-portal.example.com, not meaningful outside their own docs setup.
+    enabled: false
+    host: bb-portal.example.com
+    ingressClassName: ""

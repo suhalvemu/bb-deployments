@@ -1,0 +1,65 @@
+# Default values for the buildbarn chart.
+
+namespace:
+  # If true, the chart creates the namespace itself. Set to false if you
+  # manage the namespace externally (e.g. via a separate Terraform/GitOps
+  # resource) and just want to install into an existing one.
+  create: true
+  name: buildbarn
+
+global:
+  # Matches common.libsonnet's `maximumMessageSizeBytes` — the largest
+  # single gRPC message Buildbarn components will accept.
+  maximumMessageSizeBytes: 16777216 # 16 MiB
+
+image:
+  repository: ghcr.io/buildbarn/bb-storage
+  tag: "20260609T094425Z-10acc76"
+  pullPolicy: IfNotPresent
+
+storage:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+
+  # Storage class for the PVCs below. Leave empty to use the cluster
+  # default (what `kind` uses for local testing). Set explicitly for
+  # cloud deployments, e.g. "gp3" on EKS or "premium-rwo" on GKE.
+  storageClassName: ""
+
+  cas:
+    pvcSizeGi: 33
+    blockSizeBytes: 34359738368 # 32 GiB, must stay <= pvcSizeGi
+    keyLocationMapSizeBytes: 419430400 # 400 MiB
+  ac:
+    pvcSizeGi: 1
+    blockSizeBytes: 20971520 # 20 MiB
+    keyLocationMapSizeBytes: 1048576 # 1 MiB
+  fsac:
+    pvcSizeGi: 1
+    blockSizeBytes: 20971520 # 20 MiB
+    keyLocationMapSizeBytes: 1048576 # 1 MiB
+
+  # Buildbarn's own images don't bundle grpc_health_probe, so probes use a
+  # plain TCP check against the gRPC listen port rather than an actual gRPC
+  # health check. Good enough to catch "process is up and listening" —
+  # swap to grpcSocket-based probes if a build variant adds the probe binary.
+  probes:
+    enabled: true
+    port: 8981
+    initialDelaySeconds: 5
+    periodSeconds: 10

@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: storage
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "storage") | nindent 4 }}
+spec:
+  replicas: {{ .Values.storage.replicas }}
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "storage") | nindent 6 }}
+  serviceName: storage
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "storage") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.storage.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.storage.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.storage.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.storage.securityContext.fsGroup }}
+      containers:
+      - name: storage
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - /config/storage.jsonnet
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.storage.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.storage.securityContext.readOnlyRootFilesystem }}
+        ports:
+        - containerPort: 8981
+          protocol: TCP
+          name: grpc
+        resources:
+          {{- toYaml .Values.storage.resources | nindent 10 }}
+        {{- if .Values.storage.probes.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.storage.probes.port }}
+          initialDelaySeconds: {{ .Values.storage.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.storage.probes.periodSeconds }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.storage.probes.port }}
+          initialDelaySeconds: {{ .Values.storage.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.storage.probes.periodSeconds }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+        - mountPath: /storage-cas
+          name: cas
+        - mountPath: /storage-ac
+          name: ac
+        - mountPath: /storage-fsac
+          name: fsac
+      initContainers:
+      - name: volume-init
+        image: busybox:1.31.1-uclibc
+        command:
+        - sh
+        - -c
+        - mkdir -m 0700 -p /storage-cas/persistent_state /storage-ac/persistent_state /storage-fsac/persistent_state
+        volumeMounts:
+        - mountPath: /storage-cas
+          name: cas
+        - mountPath: /storage-ac
+          name: ac
+        - mountPath: /storage-fsac
+          name: fsac
+      volumes:
+      - name: configs
+        configMap:
+          name: buildbarn-config
+          items:
+          - key: common.libsonnet
+            path: common.libsonnet
+          - key: storage.jsonnet
+            path: storage.jsonnet
+  volumeClaimTemplates:
+  - metadata:
+      name: cas
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.storage.storageClassName }}
+      storageClassName: {{ .Values.storage.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.cas.pvcSizeGi }}Gi
+  - metadata:
+      name: ac
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.storage.storageClassName }}
+      storageClassName: {{ .Values.storage.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.ac.pvcSizeGi }}Gi
+  - metadata:
+      name: fsac
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      {{- if .Values.storage.storageClassName }}
+      storageClassName: {{ .Values.storage.storageClassName }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.fsac.pvcSizeGi }}Gi

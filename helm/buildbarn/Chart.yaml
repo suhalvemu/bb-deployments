@@ -1,0 +1,15 @@
+apiVersion: v2
+name: buildbarn
+description: >-
+  Cloud-agnostic, production-grade Helm chart for Buildbarn (Bazel Remote
+  Execution API implementation). Starts with bb-storage; bb-frontend,
+  bb-scheduler, bb-worker, and bb-portal land in follow-on components.
+type: application
+version: 0.1.0
+appVersion: "20260609T094425Z-10acc76"
+home: https://github.com/buildbarn/bb-deployments
+sources:
+  - https://github.com/buildbarn/bb-storage
+maintainers:
+  - name: Suhal Vemu
+    url: https://github.com/suhalvemu

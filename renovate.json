@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackagePrefixes": ["ghcr.io/buildbarn/"],
+      "groupName": "buildbarn components"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Catch the runner container image pinned as a Jsonnet string literal (docker://...) inside kubernetes/config/*.jsonnet -- not a plain YAML `image:` field, so the default docker/kubernetes managers don't see it.",
+      "fileMatch": ["^kubernetes/config/.+\\.jsonnet$"],
+      "matchStrings": [
+        "docker://(?<depName>[^:'\"]+):(?<currentValue>[^@'\"]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

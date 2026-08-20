@@ -141,3 +141,59 @@ scheduler:
     enabled: false
     host: bb-scheduler.example.com
     ingressClassName: ""
+
+worker:
+  # This is the "ubuntu22-04" worker pool from upstream's raw manifest —
+  # a single instance/platform for now. Multi-platform support (separate
+  # worker pools per OS/toolchain) would mean templating this whole block
+  # over a list; not done here, matches upstream's current single-instance
+  # scope.
+  replicas: 8
+
+  image:
+    repository: ghcr.io/buildbarn/bb-worker
+    tag: "20260527T162223Z-c48dcda"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # bb-worker needs no special securityContext in upstream's manifest
+  # (unlike the runner sidecar below) — left at K8s defaults rather than
+  # forcing non-root, since it wasn't verified whether the worker binary
+  # needs elevated permissions to manage build execution.
+
+  runnerInstaller:
+    image:
+      repository: ghcr.io/buildbarn/bb-runner-installer
+      tag: "20260527T162223Z-c48dcda"
+      pullPolicy: IfNotPresent
+
+  runner:
+    image:
+      repository: ghcr.io/catthehacker/ubuntu
+      # Tag + digest combined, matching upstream's pinned reference.
+      tag: "act-22.04@sha256:dd7654ffb01d5b7b54b23b9ce928a1f7f2d08c7b3d7e320b6574b55d7ccde78b"
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    securityContext:
+      runAsUser: 65534
+      allowPrivilegeEscalation: false
+
+  concurrency: 8
+  inputDownloadConcurrency: 10
+  outputUploadConcurrency: 11
+  cache:
+    maximumFileCount: 10000
+    maximumSizeBytes: 1073741824 # 1 GiB

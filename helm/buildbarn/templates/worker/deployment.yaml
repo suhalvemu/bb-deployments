@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-ubuntu22-04
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "worker") | nindent 4 }}
+  annotations:
+    prometheus.io/port: "80"
+    prometheus.io/scrape: "true"
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "worker") | nindent 8 }}
+    spec:
+      containers:
+      - name: worker
+        image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+        imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+        args:
+        - /config/worker-ubuntu22-04.jsonnet
+        resources:
+          {{- toYaml .Values.worker.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+        - mountPath: /worker
+          name: worker
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      - name: runner
+        command: [/bb/bb_runner, /config/runner-ubuntu22-04.jsonnet]
+        image: "{{ .Values.worker.runner.image.repository }}:{{ .Values.worker.runner.image.tag }}"
+        imagePullPolicy: {{ .Values.worker.runner.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.worker.runner.resources | nindent 10 }}
+        securityContext:
+          runAsUser: {{ .Values.worker.runner.securityContext.runAsUser }}
+          allowPrivilegeEscalation: {{ .Values.worker.runner.securityContext.allowPrivilegeEscalation }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+        - mountPath: /worker
+          name: worker
+        - mountPath: /bb
+          name: empty
+          readOnly: true
+      initContainers:
+      - name: bb-runner-installer
+        image: "{{ .Values.worker.runnerInstaller.image.repository }}:{{ .Values.worker.runnerInstaller.image.tag }}"
+        imagePullPolicy: {{ .Values.worker.runnerInstaller.image.pullPolicy }}
+        volumeMounts:
+        - mountPath: /bb/
+          name: empty
+      - name: volume-init
+        image: busybox:1.31.1-uclibc
+        command:
+        - sh
+        - -c
+        - mkdir -pm 0777 /worker/build && mkdir -pm 0700 /worker/cache && chmod 0777 /worker
+        volumeMounts:
+        - mountPath: /worker
+          name: worker
+      volumes:
+      - name: empty
+        emptyDir: {}
+      - name: configs
+        configMap:
+          name: buildbarn-config
+          items:
+          - key: common.libsonnet
+            path: common.libsonnet
+          - key: runner-ubuntu22-04.jsonnet
+            path: runner-ubuntu22-04.jsonnet
+          - key: worker-ubuntu22-04.jsonnet
+            path: worker-ubuntu22-04.jsonnet
+      - name: worker
+        emptyDir: {}

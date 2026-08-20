@@ -242,3 +242,56 @@ data:
       },
       platformQueueWithNoWorkersTimeout: '900s',
     }
+  worker-ubuntu22-04.jsonnet: |
+    local common = import 'common.libsonnet';
+
+    {
+      blobstore: common.blobstore,
+      browserUrl: common.browserUrl,
+      maximumMessageSizeBytes: common.maximumMessageSizeBytes,
+      scheduler: { address: 'scheduler:8983' },
+      global: common.global {
+        setUmask: { umask: 0 },
+      },
+      buildDirectories: [{
+        native: {
+          buildDirectoryPath: '/worker/build',
+          cacheDirectoryPath: '/worker/cache',
+          maximumCacheFileCount: {{ .Values.worker.cache.maximumFileCount | int64 }},
+          maximumCacheSizeBytes: {{ .Values.worker.cache.maximumSizeBytes | int64 }},
+          cacheReplacementPolicy: 'LEAST_RECENTLY_USED',
+        },
+        runners: [{
+          endpoint: { address: 'unix:///worker/runner' },
+          concurrency: {{ .Values.worker.concurrency | int64 }},
+          platform: {
+            properties: [
+              { name: 'OSFamily', value: 'linux' },
+              { name: 'container-image', value: 'docker://{{ .Values.worker.runner.image.repository }}:{{ .Values.worker.runner.image.tag }}' },
+            ],
+          },
+          workerId: {
+            pod: std.extVar('POD_NAME'),
+            node: std.extVar('NODE_NAME'),
+          },
+        }],
+      }],
+      inputDownloadConcurrency: {{ .Values.worker.inputDownloadConcurrency | int64 }},
+      outputUploadConcurrency: {{ .Values.worker.outputUploadConcurrency | int64 }},
+      directoryCache: {
+        maximumCount: 1000,
+        maximumSizeBytes: 1000 * 1024,
+        cacheReplacementPolicy: 'LEAST_RECENTLY_USED',
+      },
+    }
+  runner-ubuntu22-04.jsonnet: |
+    local common = import 'common.libsonnet';
+
+    {
+      buildDirectoryPath: '/worker/build',
+      // TODO: global: common.global,
+      grpcServers: [{
+        listenPaths: ['/worker/runner'],
+        authenticationPolicy: { allow: {} },
+      }],
+    }

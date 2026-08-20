@@ -30,7 +30,12 @@ data:
           shards: {{ include "buildbarn.storageShards" . | nindent 10 }},
         },
       },
-      browserUrl: 'http://bb-browser.example.com:80',
+      initialSizeClassCache: {
+        sharding: {
+          shards: {{ include "buildbarn.storageShards" . | nindent 10 }},
+        },
+      },
+      browserUrl: 'http://bb-portal.example.com:80/browser',
       maximumMessageSizeBytes: {{ .Values.global.maximumMessageSizeBytes | int64 }},
       global: {
         diagnosticsHttpServer: {
@@ -151,4 +156,89 @@ data:
         getAuthorizer: { allow: {} },
         putAuthorizer: { allow: {} },
       },
+    }
+  frontend.jsonnet: |
+    local common = import 'common.libsonnet';
+
+    {
+      grpcServers: [{
+        listenAddresses: [':8980'],
+        authenticationPolicy: { allow: {} },
+      }],
+      schedulers: {
+        '': {
+          endpoint: {
+            address: 'scheduler:8982',
+            addMetadataJmespathExpression: {
+              expression: |||
+                {
+                  "build.bazel.remote.execution.v2.requestmetadata-bin": incomingGRPCMetadata."build.bazel.remote.execution.v2.requestmetadata-bin"
+                }
+              |||,
+            },
+          },
+        },
+      },
+      maximumMessageSizeBytes: common.maximumMessageSizeBytes,
+      global: common.global,
+      contentAddressableStorage: {
+        backend: common.blobstore.contentAddressableStorage,
+        getAuthorizer: { allow: {} },
+        putAuthorizer: { allow: {} },
+        findMissingAuthorizer: { allow: {} },
+      },
+      actionCache: {
+        backend: common.blobstore.actionCache,
+        getAuthorizer: { allow: {} },
+        putAuthorizer: { allow: {} },
+      },
+      fileSystemAccessCache: {
+        backend: common.fileSystemAccessCache,
+        getAuthorizer: { allow: {} },
+        putAuthorizer: { allow: {} },
+      },
+      executeAuthorizer: { allow: {} },
+    }
+  scheduler.jsonnet: |
+    local common = import 'common.libsonnet';
+
+    {
+      adminHttpServers: [{
+        listenAddresses: [':7982'],
+        authenticationPolicy: { allow: {} },
+      }],
+      clientGrpcServers: [{
+        listenAddresses: [':8982'],
+        authenticationPolicy: { allow: {} },
+      }],
+      workerGrpcServers: [{
+        listenAddresses: [':8983'],
+        authenticationPolicy: { allow: {} },
+      }],
+      buildQueueStateGrpcServers: [{
+        listenAddresses: [':8984'],
+        authenticationPolicy: { allow: {} },
+      }],
+      browserUrl: common.browserUrl,
+      contentAddressableStorage: common.blobstore.contentAddressableStorage,
+      maximumMessageSizeBytes: common.maximumMessageSizeBytes,
+      global: common.global,
+      executeAuthorizer: { allow: {} },
+      modifyDrainsAuthorizer: { allow: {} },
+      killOperationsAuthorizer: { allow: {} },
+      synchronizeAuthorizer: { allow: {} },
+      actionRouter: {
+        simple: {
+          platformKeyExtractor: { action: {} },
+          invocationKeyExtractors: [
+            { correlatedInvocationsId: {} },
+            { toolInvocationId: {} },
+          ],
+          initialSizeClassAnalyzer: {
+            defaultExecutionTimeout: '1800s',
+            maximumExecutionTimeout: '7200s',
+          },
+        },
+      },
+      platformQueueWithNoWorkersTimeout: '900s',
     }

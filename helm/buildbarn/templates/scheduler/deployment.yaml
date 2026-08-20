@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+    {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "scheduler") | nindent 4 }}
+spec:
+  replicas: {{ .Values.scheduler.replicas }}
+  selector:
+    matchLabels:
+      {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "scheduler") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "buildbarn.selectorLabels" (dict "root" $ "component" "scheduler") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.scheduler.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.scheduler.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.scheduler.securityContext.runAsGroup }}
+      containers:
+      - name: scheduler
+        image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
+        imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+        args:
+        - /config/scheduler.jsonnet
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.scheduler.securityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.scheduler.securityContext.readOnlyRootFilesystem }}
+        ports:
+        - containerPort: 8982
+          protocol: TCP
+          name: client-grpc
+        - containerPort: 8983
+          protocol: TCP
+          name: worker-grpc
+        - containerPort: 8984
+          protocol: TCP
+          name: queue-state
+        - containerPort: 7982
+          protocol: TCP
+          name: http
+        resources:
+          {{- toYaml .Values.scheduler.resources | nindent 10 }}
+        {{- if .Values.scheduler.probes.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.scheduler.probes.port }}
+          initialDelaySeconds: {{ .Values.scheduler.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.scheduler.probes.periodSeconds }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.scheduler.probes.port }}
+          initialDelaySeconds: {{ .Values.scheduler.probes.initialDelaySeconds }}
+          periodSeconds: {{ .Values.scheduler.probes.periodSeconds }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /config/
+          name: configs
+          readOnly: true
+      volumes:
+      - name: configs
+        configMap:
+          name: buildbarn-config
+          items:
+          - key: common.libsonnet
+            path: common.libsonnet
+          - key: scheduler.jsonnet
+            path: scheduler.jsonnet

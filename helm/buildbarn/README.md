@@ -17,6 +17,16 @@ manifests re-templated — it fixes real gaps along the way:
 - Most components run with a non-root `securityContext`.
 - Storage class, replica/shard counts, cache sizes, and worker concurrency
   are all parameterized instead of hardcoded.
+- Optional OIDC/JWT authentication (`oidc.enabled`) — off by default,
+  verified to correctly reject unauthenticated requests on every
+  gRPC/HTTP endpoint when turned on, and to clean up its resources when
+  turned back off.
+
+**Testing status:** everything in this chart — including OIDC on and off —
+has been built and verified end-to-end against a local `kind` cluster:
+real pods reaching `Running`, real Bazel builds executing remotely through
+it, BES streaming to the portal UI. It has **not** been run against a
+production cluster or a cloud-managed Kubernetes control plane yet.
 
 ## Prerequisites
 
@@ -27,14 +37,25 @@ manifests re-templated — it fixes real gaps along the way:
 
 ## Install
 
+### From GHCR (recommended for consumers)
+
+Published as an OCI artifact — no `helm repo add` needed:
+
+```sh
+helm install buildbarn oci://ghcr.io/suhalvemu/charts/buildbarn \
+  --version 0.1.0 -n buildbarn --create-namespace
+```
+
+### From a local checkout (for development on the chart itself)
+
 ```sh
 helm install buildbarn . -n buildbarn --create-namespace
 ```
 
-The chart creates its own namespace by default (`namespace.create: true`,
-`namespace.name: buildbarn`) — set `--create-namespace` above only if you
-also flip `namespace.create` to `false` and want Helm managing that
-instead.
+Either way, the chart creates its own namespace by default
+(`namespace.create: true`, `namespace.name: buildbarn`) — pass
+`--create-namespace` above only if you also flip `namespace.create` to
+`false` and want Helm managing that instead.
 
 ### Local testing on `kind`
 
@@ -90,6 +111,10 @@ Full defaults are in [`values.yaml`](values.yaml). Highlights:
 | `postgres.pvcSizeGi` | `5` | |
 | `portal.companyName` | `"Example Co"` | Displayed in the web UI |
 | `portal.ingress.enabled` | `false` | Same reasoning as `scheduler.ingress` — `bb-portal.example.com` isn't portable |
+| `oidc.enabled` | `false` | Switches every component's `authenticationPolicy` from `allow: {}` to JWT validation. `bb-worker`'s internal registration traffic stays unauthenticated regardless — it has no OIDC identity to present |
+| `oidc.jwksUrl` | Google's JWKS endpoint | Your OIDC provider's JWKS URL (not the discovery URL) |
+| `oidc.audience` | `"buildbarn-cluster"` | Required `aud` claim value; tokens without a match are rejected |
+| `oidc.syncJob.schedule` | `"*/15 * * * *"` | How often the JWKS ConfigMap refreshes |
 
 ## What's not here yet
 

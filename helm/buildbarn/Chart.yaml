@@ -2,8 +2,9 @@ apiVersion: v2
 name: buildbarn
 description: >-
   Cloud-agnostic, production-grade Helm chart for Buildbarn (Bazel Remote
-  Execution API implementation). Starts with bb-storage; bb-frontend,
-  bb-scheduler, bb-worker, and bb-portal land in follow-on components.
+  Execution API implementation). Covers all 6 components (bb-storage,
+  bb-frontend, bb-scheduler, bb-worker, bb-portal, postgres), with optional
+  OIDC/JWT authentication.
 type: application
 version: 0.1.0
 appVersion: "20260609T094425Z-10acc76"

@@ -1,0 +1,60 @@
+{{- if .Values.oidc.enabled }}
+# Hooked (rather than a regular resource) at an earlier weight than the
+# bootstrap Job below, since Helm creates pre-install/pre-upgrade hooks
+# before any of the release's regular resources -- the ServiceAccount
+# needs to exist before the bootstrap Job hook tries to use it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jwks-sync
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jwks-sync
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+rules:
+# sync-jwks-to-configmap uses server-side apply to create/update the
+# target ConfigMap -- needs get (to check current state), create (first
+# run), and patch (subsequent runs via apply).
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: [{{ include "buildbarn.jwksConfigMapName" . | quote }}]
+  verbs: ["get", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jwks-sync
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jwks-sync
+subjects:
+- kind: ServiceAccount
+  name: jwks-sync
+  namespace: {{ include "buildbarn.namespace" . }}
+{{- end }}

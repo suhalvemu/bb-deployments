@@ -291,3 +291,39 @@ portal:
     enabled: false
     host: bb-portal.example.com
     ingressClassName: ""
+
+# OIDC/JWT authentication. Off by default -- every component ships with
+# authenticationPolicy: { allow: {} } (no auth at all) until this is
+# enabled, which is fine for local kind testing but not for anything
+# beyond that.
+#
+# Buildbarn deliberately does NOT fetch a JWKS directly from an OIDC
+# provider at request-validation time (startup-dependency risk if the
+# IdP is briefly unavailable, plus unnecessary load on the IdP from
+# every storage node). Instead it reads a JWKS from a local file, kept
+# fresh by a CronJob running Buildbarn's own sync-jwks-to-configmap
+# binary against your provider's JWKS endpoint (e.g. Google's
+# `https://www.googleapis.com/oauth2/v3/certs`, or your IdP's
+# `<issuer>/.well-known/jwks.json`).
+oidc:
+  enabled: false
+
+  # Your OIDC provider's JWKS endpoint -- NOT the OIDC discovery
+  # document URL. If you only have the discovery URL, fetch it once
+  # and use the "jwks_uri" field from that document.
+  jwksUrl: "https://www.googleapis.com/oauth2/v3/certs"
+
+  # Required "aud" (audience) claim value. Tokens without a matching
+  # audience are rejected. Set this to whatever your IdP issues as the
+  # audience for this specific client/application.
+  audience: "buildbarn-cluster"
+
+  syncJob:
+    image:
+      repository: ghcr.io/buildbarn/sync-jwks-to-configmap
+      tag: "20260814T085338Z-fffe73b"
+      pullPolicy: IfNotPresent
+    # How often to refresh the JWKS. Buildbarn's own jwks_file reload
+    # is every 300s regardless, so syncing more often than that has no
+    # additional effect.
+    schedule: "*/15 * * * *"

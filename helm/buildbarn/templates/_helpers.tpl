@@ -60,3 +60,44 @@ user-supplied existingSecret, or the one this chart creates itself.
 postgres-credentials
 {{- end -}}
 {{- end -}}
+
+{{/*
+Name of the ConfigMap holding the synced JWKS.
+*/}}
+{{- define "buildbarn.jwksConfigMapName" -}}
+buildbarn-jwks
+{{- end -}}
+
+{{/*
+Jsonnet snippet for a gRPC server's `authenticationPolicy` field.
+Renders the real JWT policy when oidc.enabled, otherwise `allow: {}`
+(matching every component's pre-OIDC default). Deliberately kept as a
+single line -- this is substituted inline inside a YAML block scalar
+(the embedded Jsonnet config), so multi-line output without explicit
+nindent/indent handling at every call site would silently de-indent
+and break the surrounding YAML. Call as:
+  authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
+*/}}
+{{- define "buildbarn.authenticationPolicy" -}}
+{{- if .Values.oidc.enabled -}}
+{ jwt: { jwksFile: '/jwks/jwks.json', maximumCacheSize: 1000, cacheReplacementPolicy: 'LEAST_RECENTLY_USED', claimsValidationJmespathExpression: { expression: "payload.aud == '{{ .Values.oidc.audience }}'" }, metadataExtractionJmespathExpression: { expression: '{"public": {"subject": payload.sub}}' } } }
+{{- else -}}
+{ allow: {} }
+{{- end -}}
+{{- end -}}
+
+{{/*
+Volume + mount for the synced JWKS ConfigMap. Only meaningful when
+oidc.enabled -- callers should guard inclusion with that same check.
+*/}}
+{{- define "buildbarn.jwksVolume" -}}
+- name: jwks
+  configMap:
+    name: {{ include "buildbarn.jwksConfigMapName" . }}
+{{- end -}}
+
+{{- define "buildbarn.jwksVolumeMount" -}}
+- mountPath: /jwks/
+  name: jwks
+  readOnly: true
+{{- end -}}

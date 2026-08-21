@@ -1,0 +1,37 @@
+{{- if .Values.oidc.enabled }}
+# Runs the same sync once, synchronously, before the main components
+# (storage/frontend/scheduler/portal) are created -- without this, a
+# first install would have those pods trying to mount a ConfigMap that
+# doesn't exist yet, since the CronJob only runs on its schedule.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jwks-sync-bootstrap
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: jwks-sync
+      restartPolicy: Never
+      containers:
+      - name: jwks-sync
+        image: "{{ .Values.oidc.syncJob.image.repository }}:{{ .Values.oidc.syncJob.image.tag }}"
+        imagePullPolicy: {{ .Values.oidc.syncJob.image.pullPolicy }}
+        args:
+        - /config/sync_jwks_to_configmap.jsonnet
+        volumeMounts:
+        - mountPath: /config/
+          name: config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: jwks-sync-config
+{{- end }}

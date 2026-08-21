@@ -59,6 +59,9 @@ spec:
           name: ac
         - mountPath: /storage-fsac
           name: fsac
+        {{- if .Values.oidc.enabled }}
+        {{- include "buildbarn.jwksVolumeMount" . | nindent 8 }}
+        {{- end }}
       initContainers:
       - name: volume-init
         image: busybox:1.31.1-uclibc
@@ -82,6 +85,9 @@ spec:
             path: common.libsonnet
           - key: storage.jsonnet
             path: storage.jsonnet
+      {{- if .Values.oidc.enabled }}
+      {{- include "buildbarn.jwksVolume" . | nindent 6 }}
+      {{- end }}
   volumeClaimTemplates:
   - metadata:
       name: cas

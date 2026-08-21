@@ -55,7 +55,7 @@ data:
     {
       grpcServers: [{
         listenAddresses: [':8981'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
       maximumMessageSizeBytes: common.maximumMessageSizeBytes,
       global: common.global,
@@ -163,7 +163,7 @@ data:
     {
       grpcServers: [{
         listenAddresses: [':8980'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
       schedulers: {
         '': {
@@ -205,19 +205,24 @@ data:
     {
       adminHttpServers: [{
         listenAddresses: [':7982'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
       clientGrpcServers: [{
         listenAddresses: [':8982'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
+      // Intentionally always allow: {} regardless of oidc.enabled -- this is
+      // where worker pods register themselves, machine-to-machine, from
+      // inside the cluster. They have no OIDC identity/token to present;
+      // treat this as internal-only traffic, restricted via NetworkPolicy
+      // rather than user-facing JWT auth if isolation is needed.
       workerGrpcServers: [{
         listenAddresses: [':8983'],
         authenticationPolicy: { allow: {} },
       }],
       buildQueueStateGrpcServers: [{
         listenAddresses: [':8984'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
       browserUrl: common.browserUrl,
       contentAddressableStorage: common.blobstore.contentAddressableStorage,
@@ -302,7 +307,7 @@ data:
       global: common.global,
       httpServers: [{
         listenAddresses: [':8081'],
-        authenticationPolicy: { allow: {} },
+        authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
       }],
       instanceNameAuthorizer: {
         allow: {},
@@ -311,7 +316,7 @@ data:
       besServiceConfiguration: {
         grpcServers: [{
           listenAddresses: [':8082'],
-          authenticationPolicy: { allow: {} },
+          authenticationPolicy: {{ include "buildbarn.authenticationPolicy" $ }},
           maximumReceivedMessageSizeBytes: 10 * 1024 * 1024,
         }],
         database: {

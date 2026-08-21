@@ -1,0 +1,34 @@
+{{- if .Values.oidc.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jwks-sync
+  namespace: {{ include "buildbarn.namespace" . }}
+  labels:
+    {{- include "buildbarn.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.oidc.syncJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: jwks-sync
+          restartPolicy: OnFailure
+          containers:
+          - name: jwks-sync
+            image: "{{ .Values.oidc.syncJob.image.repository }}:{{ .Values.oidc.syncJob.image.tag }}"
+            imagePullPolicy: {{ .Values.oidc.syncJob.image.pullPolicy }}
+            args:
+            - /config/sync_jwks_to_configmap.jsonnet
+            volumeMounts:
+            - mountPath: /config/
+              name: config
+              readOnly: true
+          volumes:
+          - name: config
+            configMap:
+              name: jwks-sync-config
+{{- end }}

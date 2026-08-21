@@ -1,8 +1,25 @@
 {{- if .Values.namespace.create }}
+# Hooked at the earliest weight in the chart -- when oidc.enabled, the
+# RBAC/bootstrap-job hooks (weight -10/-5) create namespaced resources
+# and need the namespace to exist first. Regular (non-hook) resources
+# are only created after all pre-install hooks finish, so a plain
+# Namespace template wouldn't be ready in time.
+#
+# Deliberately NO hook-delete-policy here, unlike the other OIDC hooks.
+# Helm hook creation uses idempotent server-side apply, so re-applying
+# an already-existing Namespace on every upgrade is a harmless no-op --
+# but `before-hook-creation` (used elsewhere in this chart) actively
+# DELETES the previous hook resource first. For a Namespace that means
+# deleting and recreating it on every single `helm upgrade`, cascading
+# to destroy every PVC/Deployment/StatefulSet inside it. Caught this
+# by actually testing an upgrade, not just an install.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ include "buildbarn.namespace" . }}
   labels:
     {{- include "buildbarn.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-20"
 {{- end }}

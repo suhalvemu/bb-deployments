@@ -27,6 +27,15 @@ are established.
   <img src="bb-overview.png" alt="Overview of the Buildbarn setup"/>
 </p>
 
+## Deployment platforms
+
+| Platform | Location | Notes |
+| -------- | -------- | ----- |
+| Docker Compose | [`docker-compose/`](docker-compose) | Single-node, used in the [Getting started](#getting-started) walkthrough below. |
+| Kubernetes (raw manifests + Kustomize) | [`kubernetes/`](kubernetes) | Upstream's original K8s deployment. |
+| Kubernetes (Helm chart) | [`helm/buildbarn/`](helm/buildbarn) | All 6 components as a single release, PVC-backed postgres, OIDC/JWT auth optional. Published as an OCI artifact — install with `helm install buildbarn oci://ghcr.io/suhalvemu/charts/buildbarn --version 0.1.0`. Verified end-to-end on `kind`; feedback on real clusters welcome. See the [chart README](helm/buildbarn/README.md) for full docs. |
+| Bare (build from source) | [`bare/`](bare) | Runs all components from source, used as the development substrate for this repo. |
+
 ## Current versions
 
 This repository currently demonstrates the following versions.
